@@ -14,10 +14,27 @@ class foreman_proxy::plugin::dns::infoblox (
   $dns_server = $::foreman_proxy::plugin::dns::infoblox::params::dns_server,
   $username   = $::foreman_proxy::plugin::dns::infoblox::params::username,
   $password   = $::foreman_proxy::plugin::dns::infoblox::params::password,
+  $proxy_uri  = undef,
 ) inherits foreman_proxy::plugin::dns::infoblox::params {
   validate_string($dns_server, $username, $password)
 
-  foreman_proxy::plugin { 'dns_infoblox':
+  $install_options = $proxy_uri ? {
+    undef   => undef,
+    default => [{'--http-proxy' => $proxy_uri}],
+  }
+
+  ensure_packages(['smart_proxy_dns_infoblox', 'infoblox'], {
+    ensure          => $foreman_proxy::plugin_version,
+    provider        => gem,
+    install_options => $install_options,
+    before          => File['/usr/share/foreman-proxy/bundler.d/dns_infoblox.rb'],
+  })
+  file { '/usr/share/foreman-proxy/bundler.d/dns_infoblox.rb':
+    ensure  => file,
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0644',
+    content => "gem 'smart_proxy_dns_infoblox'",
   } ->
   foreman_proxy::settings_file { 'dns_infoblox':
     module        => false,
